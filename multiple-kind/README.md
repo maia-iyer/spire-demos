@@ -66,9 +66,11 @@ To federate the clusters takes a couple steps:
 - kind (this tutorial was tested with podman and kind)
 - helm
 
+If running with podman, recommended 4096 memory i.e., `podman machine init -m 4096`
+
 ### Step 0.5: Create the Kind clusters
 
-For the purposes of this, we can name the clusters `server` and `client`:
+For this demo, we can name the clusters `server` and `client`:
 
 ```
 kind create cluster --name=server
@@ -223,7 +225,7 @@ kubectl apply -f workload_client.yaml --context $CLIENT_CONTEXT
 From this, eventually, the job should show completion:
 
 ```
-% kubectl get job -n demo
+% kubectl get job -n demo --context $CLIENT_CONTEXT
 NAMESPACE   NAME     COMPLETIONS   DURATION   AGE
 demo        client   1/1           6s         13h
 ```
@@ -246,7 +248,7 @@ kubectl apply -f workload_client_fail.yaml --context $CLIENT_CONTEXT
 You will see the failure in the client logs:
 
 ```
-% kubectl logs -n demo client-fail-d94tn
+% kubectl logs -n demo --context $CLIENT_CONTEXT job/client-fail
 Starting...
 Created Newx509Source
 created HTTP client
@@ -258,7 +260,7 @@ fetched JWT SVID
 And in the server, it would show up as a TLS handshake error:
 
 ```
-% kubectl logs -n demo client-fail-d94tn
+% kubectl logs -n demo --context $SERVER_CONTEXT deployment/server
 ...
 2024/03/26 02:17:47 http: TLS handshake error from 127.0.0.1:55164: remote error: tls: bad certificate
 ```
