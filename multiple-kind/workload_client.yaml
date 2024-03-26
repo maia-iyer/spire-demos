@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  creationTimestamp: null
+  labels:
+    app: client
+  name: client
+  namespace: demo
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - image: docker.io/maiariyer/gospiffe-client:v0
+        name: gospiffe-client
+        env:
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: unix:///spiffe-workload-api/spire-agent.sock
+        - name: serverURL
+          value: https://host.docker.internal:10001
+        - name: serverSPIFFEId
+          value: spiffe://server.example/ns/demo/sa/default
+        resources: {}
+        volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /spiffe-workload-api
+          readOnly: true
+      volumes:
+      - name: spiffe-workload-api
+        csi:
+          driver: "csi.spiffe.io"
+          readOnly: true
+status: {}

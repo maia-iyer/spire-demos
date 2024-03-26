@@ -1,0 +1,12 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterFederatedTrustDomain
+metadata:
+  name: server.example
+spec:
+  trustDomain: server.example
+  className: spire-mgmt-spire
+  bundleEndpointURL: https://host.docker.internal:8440
+  bundleEndpointProfile:
+    type: https_spiffe
+    endpointSPIFFEID: spiffe://server.example/spire/server
+  trustDomainBundle: |-

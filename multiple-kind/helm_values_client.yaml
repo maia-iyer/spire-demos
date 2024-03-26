@@ -1,0 +1,18 @@
+global:
+  spire:
+    clusterName: client.example
+    trustDomain: client.example
+    jwtIssuer: oidc-discover.client.example
+
+spire-server:
+  federation:
+    enabled: true
+  ca_subject:
+    country: US
+    organization: Client
+    common_name: client.example
+  controllerManager:
+    identities:
+      clusterSPIFFEIDs:
+        default:
+          federatesWith: ["server.example"]
