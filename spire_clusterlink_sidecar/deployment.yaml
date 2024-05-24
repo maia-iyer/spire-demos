@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: demo-serviceaccount
+  namespace: demo  # Specify the namespace where you want to create the service account
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: demo
+  name: secret-access-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "create", "delete", "update"]  # Define the permissions you want to grant
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: secret-access-role-binding
+  namespace: demo
+subjects:
+- kind: ServiceAccount
+  name: demo-serviceaccount
+  namespace: demo
+roleRef:
+  kind: Role
+  name: secret-access-role  # Reference the role created above
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: server
+  name: server
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: server
+    spec:
+      serviceAccountName: demo-serviceaccount
+      containers:
+      - image: spiffe-helper:secret-build
+        name: spiffe-helper
+        args:
+        - -config
+        - ./conf/helper.conf
+        resources: {}
+        volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /spiffe-workload-api
+          readOnly: true
+        - name: spiffe-helper-config
+          mountPath: ./conf/
+      volumes:
+      - name: spiffe-workload-api
+        csi:
+          driver: "csi.spiffe.io"
+          readOnly: true
+      - name: spiffe-helper-config
+        configMap:
+          name: spiffe-helper-config
+

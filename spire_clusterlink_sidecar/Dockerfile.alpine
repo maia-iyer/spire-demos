@@ -1,0 +1,12 @@
+FROM ghcr.io/spiffe/spiffe-helper:nightly as spiffe-helper
+
+FROM alpine:latest as alpine
+
+RUN apk --no-cache add curl
+
+COPY --from=spiffe-helper /spiffe-helper /spiffe-helper
+COPY create-secret.sh /create-secret.sh
+
+ENTRYPOINT ["/spiffe-helper"]
+
+CMD []
