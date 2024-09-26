@@ -24,6 +24,9 @@ spire-server:
     image:
       tag: v1.8.0
 
+spiffe-oidc-discovery-provider:
+  enabled: false
+
 tornjak-frontend:
   enabled: true
   apiServerURL: http://localhost:10000
