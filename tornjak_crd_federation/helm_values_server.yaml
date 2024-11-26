@@ -1,0 +1,55 @@
+global:
+  openshift: true # If running on openshift, set to true
+  spire:
+    recommendations:
+      enabled: true
+    namespaces:
+      create: true
+    ingressControllerType: "" # If not openshift, and want to expose services, set to a supported option [ingress-nginx]
+    # Update these
+    clusterName: server-cluster
+    trustDomain: $APP_DOMAIN 
+    caSubject:
+      country: SPIFFE
+      organization: TornjakFederationDemo
+      commonName: $APP_DOMAIN
+
+spire-server:
+  ingress:
+    enabled: true
+  federation:
+    enabled: true
+    ingress:
+      enabled: true
+  tornjak:
+    enabled: true
+    ingress:
+      enabled: true
+    image:
+      tag: 71e87dc17afd66e42ab70e3004d833175d63a167
+  controllerManager:
+    identities:
+      clusterSPIFFEIDs:
+        default:
+          autoPopulateDNSNames: true
+          dnsNameTemplates:
+          - '{{index .PodMeta.Labels "app"}}.$APP_DOMAIN'
+  
+
+tornjak-frontend:
+  enabled: true
+  image:
+    tag: ubi-v1.9.0
+  ingress:
+    enabled: true
+  apiServerURL: https://tornjak-backend.$APP_DOMAIN
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 512Mi
