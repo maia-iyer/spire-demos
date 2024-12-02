@@ -76,9 +76,9 @@ Now we can create the Kind clusters. We will add extra port mappings to cluster 
 
 ```
 export KIND_EXPERIMENTAL_PROVIDER=podman
-kind create cluster --name=clusterA --config=resources/kind_cluster_a_config.yaml
+kind create cluster --name=cluster-a --config=resources/kind_cluster_a_config.yaml
 export CONTEXT_A=$(kubectl config current-context)
-kind create cluster --name=clusterB
+kind create cluster --name=cluster-b
 export CONTEXT_B=$(kubectl config current-context)
 ```
 
