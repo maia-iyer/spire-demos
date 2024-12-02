@@ -5,14 +5,14 @@ global:
       enabled: true
     namespaces:
       create: true
-    ingressControllerType: "ingress-nginx" # If not openshift, and want to expose services, set to a supported option [ingress-nginx]
+    ingressControllerType: "" # If not openshift, and want to expose services, set to a supported option [ingress-nginx]
     # Update these
     clusterName: client-cluster
-    trustDomain: $APP_DOMAIN
+    trustDomain: client.example #$APP_DOMAIN
     caSubject:
       country: SPIFFE
       organization: TornjakFederationDemo
-      commonName: $APP_DOMAIN
+      commonName: client.example #$APP_DOMAIN
 
 spire-server:
   ingress:
@@ -30,7 +30,7 @@ tornjak-frontend:
     tag: v1.9.0
   ingress:
     enabled: true
-  apiServerURL: https://tornjak-backend.$APP_DOMAIN
+  apiServerURL: https://localhost:10001 #https://tornjak-backend.$APP_DOMAIN
   service:
     type: ClusterIP
     port: 3000

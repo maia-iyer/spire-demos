@@ -64,8 +64,8 @@ apiVersion: networking.k8s.io/v1
 metadata:
   name: demo-service-ingress
   namespace: demo
-  annotations:
-    route.openshift.io/termination: passthrough
+  #annotations:
+  #route.openshift.io/termination: passthrough
 spec:
   rules:
     - host: >-
@@ -75,7 +75,7 @@ spec:
           - pathType: ImplementationSpecific
             backend:
               service:
-               name: server-service
+                name: server-service
                 port:
                   number: 8443
 

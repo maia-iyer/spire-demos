@@ -103,7 +103,9 @@ A value similar to `x.xxx.xxx.xxx.nip.io` indicates the variable has been set pr
 We will also use a local self-signed certificate to secure the TLS connections of these applications and deploy the ingress controller:
 
 ```
-kubectl apply -f https://kind.sigs.k8s.io/examples/ingress/deploy-ingress-nginx.yaml --context=$CONTEXT_A
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout $TUTORIAL_ROOT/wildcard-tls.key -out $TUTORIAL_ROOT/wildcard-tls.crt -subj "/CN=*.$APP_DOMAIN/O=Red Hat" -addext "subjectAltName=DNS:*.$APP_DOMAIN"
+kubectl create secret tls wildcard-tls-secret --key $TUTORIAL_ROOT/wildcard-tls.key --cert $TUTORIAL_ROOT/wildcard-tls.crt
+kubectl apply -f resources/kind-ingress-deployment.yaml --context=$CONTEXT_A
 kubectl wait --namespace ingress-nginx --context=$CONTEXT_A \
   --for=condition=ready pod \
   --selector=app.kubernetes.io/component=controller \
@@ -161,8 +163,7 @@ We are using one-direction TLS connection where clients verify the authenticity 
 Let's deploy the SPIFFE-enabled TLS server on Cluster A:
 
 ```
-envsubst < resources/workload_server.yaml | kubectl apply --context=$CONTEXT_A -f -:w
-
+envsubst < resources/workload_server.yaml | kubectl apply --context=$CONTEXT_A -f -
 ```
 
 ### Step 2b: Deploy the client in Cluster A
