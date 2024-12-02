@@ -1,33 +1,112 @@
 # Federate the on-prem OpenShift cluster with SPIRE-enabled AWS ROSA cluster
 
-1. Deploy SPIRE on the AWS ROSA cluster
-2. Deploy the server workload
-3. Deploy a client workload (and see success)
-3. Deploy SPIRE on the on-prem cluster
-4. Deploy a client workload (and see failure)
-5. Federate the clusters
-6. Deploy another client workload (and see success)
+In this tutorial, we will be creating two kind clusters, deploying SPIRE on them, deploy simple applications, and federating the clusters through Tornjak. 
+
+The following structure is the end goal:
+
+<TODO insert image>
+
+We will build this with the following steps:
+
+1. Setup the clusters
+   a. Create the Kind Clusters
+   b. Deploy SPIRE on both clusters
+   c. Enable the experimental feature on Tornjak
+   d. Expose the relevant endpoints
+2. Deploy the workloads
+   a. Deploy the server workload on Cluster A
+   b. Deploy the client workload on Cluster A
+   c. Deploy the client workload on Cluster B
+3. Federate SPIRE Server B with SPIRE Server A
+   a. Federate using the Tornjak API
+   b. Configure workloads in Cluster B to `federateWith` Cluster A
+4. Test workload connection
+5. Cleanup
 
 ### Required Steps for Federation
 
-We do the federation after creating the clusters and deploying SPIRE. Therefore, we will be doing dynamic federation. 
+Federation is the process of establishing trust between SPIRE servers. In this case we will be establishing a federation relationship on Cluster B with Cluster A. This requires that Cluster A has an exposed bundle endpoint. 
 
-To federate the client cluster with the server cluster takes a couple steps:
-1. Upon deploying SPIRE, configure such that:
-    - enable federation endpoint
-    - trust domain must be specified
-2. After deployment, 
-    - Obtain the server-side SPIRE bundle
-    - Pass the bundle to the client-side SPIRE server via a Tornjak API call
+If this is true, we can establish the relationship in two steps:
+1. Obtain the initial trust bundle of Cluster A
+2. Call the Tornjak API endpoint to establish a federation relationship with the following information:
+  - Bundle Endpoint URL
+  - Trust Domain
+  - Initial bundle
+
+Once this is done, federation is established. 
+
+#### Note on how foreign trust bundles get to workloads
+
+Workloads obtain trust bundles through the workload API, even for foreign trust bundles. However, it is required that for each workload that needs a foreign trust bundle that the workload's entry is configured to `federateWith` the foreign trust domain. 
 
 ----------
 
-## A step-by-step tutorial for locally demonstrating federation between Kind clusters
+## Step 0: Requirements
 
-### Step 0: Requirements
+This tutorial uses Kind on rootless Podman. We will be creating two Kind clusters and deploying on Helm:
 
 - kubectl 
-- helm
+- Helm
+- kind
+- podman
+- git
+
+## Step 1: Setup the Clusters
+
+We will create the clusters and deploy SPIRE on both. 
+
+Let's obtain the necessary deployment files for this tutorial:
+
+```
+git clone git@github.com:maia-iyer/spire-demos.git -b tornjak_crd_federation
+cd tornjak_crd_federation
+```
+
+### Step 1a: Create the Kind Clusters
+
+If a Podman machine is up and running skip the following step. Else run this command to start the podman machine:
+
+```
+podman machine init -m 4096
+```
+
+Now we can create the Kind clusters. 
+
+```
+export KIND_EXPERIMENTAL_PROVIDER=podman
+kind create cluster --name=server
+export SERVER_CONTEXT=$(kubectl config current-context)
+kind create cluster --name=client
+export CLIENT_CONTEXT=$(kubectl config current-context)
+```
+
+### Step 1b: Deploy SPIRE on each Kind cluster
+
+Now we can deploy SPIRE on each Kind cluster. The following deploys on Cluster A
+
+```
+helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=$SERVER_CONTEXT
+envsubst < resources/helm_values_server.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=$SERVER_CONTEXT
+```
+
+And the same for Cluster B
+
+```
+helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=$CLIENT_CONTEXT
+envsubst < resources/helm_values_server.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=$CLIENT_CONTEXT
+```
+
+#### Note: on the Helm installs
+
+Notably, the helm installs are nearly identical, except for two things:
+
+1. They have different trust domain names. It is not possible to federated two SPIRE servers with the same trust domain names. 
+2. Only Cluster A has federation enabled. This is because in this demo we only need to federate in one direction.
+
+### Step 1c: Configure
+
+----------
 
 ### Step 1: Deploy SPIRE + Tornjak via Helm on the AWS ROSA Cluster
 
