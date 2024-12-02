@@ -68,7 +68,7 @@ cd tornjak_crd_federation
 If a Podman machine is up and running skip the following step. Else run this command to start the podman machine:
 
 ```
-podman machine init -m 4096
+podman machine init -m 4096 --rootful=true
 podman machine start
 ```
 
