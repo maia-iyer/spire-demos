@@ -75,7 +75,7 @@ spec:
           - pathType: ImplementationSpecific
             backend:
               service:
-                name: server-service
+               name: server-service
                 port:
                   number: 8443
 

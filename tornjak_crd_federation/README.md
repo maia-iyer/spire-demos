@@ -69,32 +69,61 @@ If a Podman machine is up and running skip the following step. Else run this com
 
 ```
 podman machine init -m 4096
+podman machine start
 ```
 
-Now we can create the Kind clusters. 
+Now we can create the Kind clusters. We will add extra port mappings to cluster A because we will set up ingress on that cluster. 
 
 ```
 export KIND_EXPERIMENTAL_PROVIDER=podman
-kind create cluster --name=server
-export SERVER_CONTEXT=$(kubectl config current-context)
-kind create cluster --name=client
-export CLIENT_CONTEXT=$(kubectl config current-context)
+kind create cluster --name=clusterA --config=resources/kind_cluster_a_config.yaml
+export CONTEXT_A=$(kubectl config current-context)
+kind create cluster --name=clusterB
+export CONTEXT_B=$(kubectl config current-context)
 ```
 
-### Step 1b: Deploy SPIRE on each Kind cluster
+### Step 1b: Set up Ingress on Cluster A
+
+On Kind we can deploy an Nginx Ingress controller to access application services running within the environment.
+
+Set the `APP_DOMAIN` environment variable to containe the subdomain for which all applications can be accessed:
+
+```
+export APP_DOMAIN=$(ipconfig getifaddr en0).nip.io
+```
+
+Confirm the variable has been populated:
+
+```
+echo $APP_DOMAIN
+```
+
+A value similar to `x.xxx.xxx.xxx.nip.io` indicates the variable has been set properly.
+
+We will also use a local self-signed certificate to secure the TLS connections of these applications and deploy the ingress controller:
+
+```
+kubectl apply -f https://kind.sigs.k8s.io/examples/ingress/deploy-ingress-nginx.yaml --context=$CONTEXT_A
+kubectl wait --namespace ingress-nginx --context=$CONTEXT_A \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=90s
+```
+
+### Step 1c: Deploy SPIRE on each Kind cluster
 
 Now we can deploy SPIRE on each Kind cluster. The following deploys on Cluster A
 
 ```
-helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=$SERVER_CONTEXT
-envsubst < resources/helm_values_server.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=$SERVER_CONTEXT
+helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=$CONTEXT_A
+envsubst < resources/helm_values_a.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=$CONTEXT_A
 ```
 
 And the same for Cluster B
 
 ```
-helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=$CLIENT_CONTEXT
-envsubst < resources/helm_values_server.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=$CLIENT_CONTEXT
+helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=$CONTEXT_B
+envsubst < resources/helm_values_b.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=$CONTEXT_B
 ```
 
 #### Note: on the Helm installs
@@ -104,7 +133,45 @@ Notably, the helm installs are nearly identical, except for two things:
 1. They have different trust domain names. It is not possible to federated two SPIRE servers with the same trust domain names. 
 2. Only Cluster A has federation enabled. This is because in this demo we only need to federate in one direction.
 
-### Step 1c: Configure
+### Step 1d: Configure Tornjak
+
+Run the following to configure Tornjak to enable CRD management:
+
+```
+kubectl apply -f resources/tornjak_cm.yaml --context=$CONTEXT_A
+kubectl delete po -n spire-server spire-server-0 --context=$CONTEXT_A
+kubectl apply -f resources/tornjak_cm.yaml --context=$CONTEXT_B
+kubectl delete po -n spire-server spire-server-0 --context=$CONTEXT_B
+```
+
+## Step 2: Deploy the workloads
+
+In this tutorial, we will deploy a TLS server on the Cluster A, and a TLS client on both clusters. 
+
+For reference, the TLS server is SPIFFE-enabled and uses the go-spiffe library to communicate with the SPIRE agent's workload API. 
+
+The TLS client is an Alpine image that uses the SPIFFE Helper to locally populate files with SPIRE-issued certificates. We will manually exec and curl into the container to demonstrate TLS connection. 
+
+#### Note: on TLS connections
+
+We are using one-direction TLS connection where clients verify the authenticity of the server. Therefore, proper communication requires the server presents a certificate that matches clients' trust bundles. Therefore, for this tutorial, we only need allow the trust bundle from Cluster A to be given to the workload in Cluster B, and no trust bundle from Cluster B need be given to workloads in Cluster A in this simple setup. 
+
+### Step 2a: Deploy the server
+
+Let's deploy the SPIFFE-enabled TLS server on Cluster A:
+
+```
+envsubst < resources/workload_server.yaml | kubectl apply --context=$CONTEXT_A -f -:w
+
+```
+
+### Step 2b: Deploy the client in Cluster A
+
+Let's deploy the client into cluster A:
+
+```
+kubectl apply -f resources/workload_client.yaml --context=$CONTEXT_A
+```
 
 ----------
 
