@@ -33,7 +33,7 @@ spire-server:
         default:
           autoPopulateDNSNames: true
           dnsNameTemplates:
-          - '{{index .PodMeta.Labels "app"}}.APP_DOMAIN'
+          - '{{index .PodMeta.Labels "app"}}.$APP_DOMAIN'
   
 
 tornjak-frontend:
