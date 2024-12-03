@@ -4,7 +4,7 @@ In this tutorial, we will be creating two kind clusters, deploying SPIRE on them
 
 The following structure is the end goal:
 
-<TODO insert image>
+![arch-diagram](./rsrc/diagram.png)
 
 We will build this with the following steps:
 
@@ -224,11 +224,20 @@ how to fix it, please visit the webpage mentioned above.
 command terminated with exit code 60
 ```
 
-### Step 2d: [Optional] ErrImagePull
+### Step 2d: [OPTIONAL] ErrImagePull
 
 If you are receiving this error upon any workload deployment, it's likely due to rate limits with DockerHub. Wait a couple minutes, delete the pod that is erroring, and it should come up. 
 
-Otherwise, 
+Otherwise, you may build and load the images yourself: 
+
+```
+docker buildx build -t docker.io/maiariyer/tls-server:v1 server --load
+kind load docker-image docker.io/maiariyer/tls-server:v1
+docker buildx build -t docker.io/maiariyer/tls-client:v1 client --load
+kind load docker-image docker.io/maiariyer/tls-client:v1
+```
+
+The source files for the TLS server and client are in the `resources/server` and `resources/client` directories respectively. 
 
 ## Step 3: Federate the clusters
 
