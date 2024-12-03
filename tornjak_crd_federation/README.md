@@ -146,10 +146,17 @@ kubectl delete po -n spire-server spire-server-0 --context=$CONTEXT_B
 
 ### Step 1e: Port-forward from Cluster B
 
-We need to expose the Tornjak backend endpoint from Cluster B. We can do this with the following command:
+We need to expose the Tornjak backend endpoint from Cluster B. In your current terminal, run:
 
 ```
-kubectl port-forward -n spire-server svc/spire-tornjak-backend 10000:10000
+echo export CONTEXT_B=$CONTEXT_B
+```
+
+Open a new terminal and run the resulting line and the port-forward: 
+
+```
+echo export CONTEXT_B=<$CONTEXT_B value from other terminal>
+kubectl port-forward -n spire-server --context=$CONTEXT_B svc/spire-tornjak-backend 10000:10000
 ```
 
 ## Step 2: Deploy the workloads
