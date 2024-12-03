@@ -54,7 +54,7 @@ This tutorial uses Kind on rootless Podman. We will be creating two Kind cluster
 
 ## Step 1: Setup the Clusters
 
-We will create the clusters and deploy SPIRE on both. 
+We will create the clusters and deploy SPIRE on both. Cluster A will use a nips address. Cluster B will use localhost and port-forwarding.
 
 Let's obtain the necessary deployment files for this tutorial:
 
@@ -144,6 +144,14 @@ kubectl apply -f resources/tornjak_cm.yaml --context=$CONTEXT_B
 kubectl delete po -n spire-server spire-server-0 --context=$CONTEXT_B
 ```
 
+### Step 1e: Port-forward from Cluster B
+
+We need to expose the Tornjak backend endpoint from Cluster B. We can do this with the following command:
+
+```
+kubectl port-forward -n spire-server svc/spire-tornjak-backend 10000:10000
+```
+
 ## Step 2: Deploy the workloads
 
 In this tutorial, we will deploy a TLS server on the Cluster A, and a TLS client on both clusters. 
@@ -171,6 +179,79 @@ Let's deploy the client into cluster A:
 ```
 kubectl apply -f resources/workload_client.yaml --context=$CONTEXT_A
 ```
+
+Once it's running, let's exec into the pod and curl the TLS server:
+
+```
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=$CONTEXT_A) --context=$CONTEXT_A -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
+```
+
+You should get a `Success!!!` message in response
+
+### Step 2c: Deploy the client into Cluster B
+
+Let's deploy the client into cluster A:
+
+```
+kubectl apply -f resources/workload_client.yaml --context=$CONTEXT_B
+```
+
+Once it's running, let's exec into the pod and curl the TLS server:
+
+```
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=$CONTEXT_B) --context=$CONTEXT_B -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
+```
+
+You should get an error message in response:
+
+```
+curl: (60) SSL certificate problem: unable to get local issuer certificate
+More details here: https://curl.se/docs/sslcerts.html
+
+curl failed to verify the legitimacy of the server and therefore could not
+establish a secure connection to it. To learn more about this situation and
+how to fix it, please visit the webpage mentioned above.
+command terminated with exit code 60
+```
+
+## Step 3: Federate the clusters
+
+As we saw, workloads from the same trust domain have the proper trust bundle to properly establish TLS connection with the TLS server. However, workloads from a separate trust domain do not have the proper trust bundle. We will now federate SPIRE Server B with SPIRE server a using the Tornjak API. 
+
+### Step 3a: Federate the SPIRE Servers
+
+We can do this with two calls: (1) obtains the trust bundle from Trust Domain A, and (2) creates a federation relationship using that bundle on SPIRE Server B. 
+
+The first step can be done via curl command. We will use the Tornjak API for this: 
+
+```
+curl https://tornjak-backend.$APP_DOMAIN/api/v1/spire/bundle
+```
+
+We can pass this result as an argument using jq to format the Tornjak API call to create the bundle endpoint:
+
+```
+curl --request POST \
+  --data "$(
+    jq -n --argjson bundle "$(curl -s https://tornjak-backend.$APP_DOMAIN/api/v1/spire/bundle)" --arg bundle_endpoint_url https://spire-server-federation.$APP_DOMAIN --arg trust_domain $APP_DOMAIN --arg endpoint_spiffe_id spiffe://$APP_DOMAIN/spire/server '{
+      "federation_relationships": [
+        {
+          "trust_domain": $trust_domain,
+          "bundle_endpoint_url": $bundle_endpoint_url,
+          "https_spiffe": {
+            "endpoint_spiffe_id": $endpoint_spiffe_id
+          },
+          "trust_domain_bundle": $bundle
+        }
+      ]
+    }'
+  )" \
+  https://localhost:10000/api/v1/spire-controller-manager/clusterfederatedtrustdomains
+```
+
+### Step 3b: Verify Federation Establishment
+
+We 
 
 ## Step n+1: Cleanup
 
