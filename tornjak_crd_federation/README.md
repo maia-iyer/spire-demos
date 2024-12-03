@@ -259,6 +259,14 @@ curl http://localhost:10000/api/v1/spire/federations
 
 Ensure the response is non-empty.
 
+We can also check the SPIRE server logs to ensure the connection with the foreign bundle endpoint is successfully established:
+
+```
+kubectl logs -n spire-server spire-server-0 --context=$CONTEXT_B | grep "Bundle refreshed"
+```
+
+If this result comes back non-empty the SPIRE server has been federated!`
+
 ### Step 3c: Configure workloads to `federateWith` the foreign trust domain
 
 In order for the workload to finally obtain the foreign trust bundle, we need to configure the workload entries. We can make the following call:
@@ -267,6 +275,12 @@ In order for the workload to finally obtain the foreign trust bundle, we need to
 envsubst < resources/clusterspiffeid_b.yaml | kubectl apply -f - 
 ```
 
+#### Note on configuring workload entries
+
+We are using the SPIRE controller manager in this demo to automatically register workloads. Above we are adjusting the default template for entries that workloads receive. 
+
+Importantly this example allows all workload entries to receive the foreign trust domain bundle, but in practice we should be more restrictive about which workloads obtain the foreign trust bundle. 
+
 ## Step 4: Verify successful TLS connection from Cluster B
 
 Finally, let's perform the CURL again: 
@@ -274,6 +288,8 @@ Finally, let's perform the CURL again:
 ```
 kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=$CONTEXT_B) --context=$CONTEXT_B -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
 ```
+
+We see success!
 
 ## Step n+1: Cleanup
 
