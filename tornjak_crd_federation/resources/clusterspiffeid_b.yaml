@@ -6,7 +6,7 @@ spec:
   className: spire-mgmt-spire
   fallback: false
   hint: default
-  federatesWith: ["$ROSA_APP_DOMAIN"]
+  federatesWith: ["$APP_DOMAIN"]
   namespaceSelector:
     matchExpressions:
     - key: kubernetes.io/metadata.name

@@ -246,12 +246,34 @@ curl --request POST \
       ]
     }'
   )" \
-  https://localhost:10000/api/v1/spire-controller-manager/clusterfederatedtrustdomains
+  http://localhost:10000/api/v1/spire-controller-manager/clusterfederatedtrustdomains
 ```
 
 ### Step 3b: Verify Federation Establishment
 
-We 
+We can verify that the federation relationship is configured by making the following API call:
+
+```
+curl http://localhost:10000/api/v1/spire/federations
+```
+
+Ensure the response is non-empty.
+
+### Step 3c: Configure workloads to `federateWith` the foreign trust domain
+
+In order for the workload to finally obtain the foreign trust bundle, we need to configure the workload entries. We can make the following call:
+
+```
+envsubst < resources/clusterspiffeid_b.yaml | kubectl apply -f - 
+```
+
+## Step 4: Verify successful TLS connection from Cluster B
+
+Finally, let's perform the CURL again: 
+
+```
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=$CONTEXT_B) --context=$CONTEXT_B -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
+```
 
 ## Step n+1: Cleanup
 
