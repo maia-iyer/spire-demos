@@ -304,7 +304,7 @@ Then to delete podman machine:
 
 ```
 podman machine stop
-y | podman machine rm
+podman machine rm
 ```
 
 ----------
