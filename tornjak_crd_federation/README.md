@@ -105,7 +105,7 @@ We will also use a local self-signed certificate to secure the TLS connections o
 ```
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./wildcard-tls.key -out ./wildcard-tls.crt -subj "/CN=*.$APP_DOMAIN/O=Red Hat" -addext "subjectAltName=DNS:*.$APP_DOMAIN"
 kubectl create secret tls wildcard-tls-secret --key ./wildcard-tls.key --cert ./wildcard-tls.crt
-kubectl apply -f resources/kind-ingress-deployment.yaml --context=$CONTEXT_A
+kubectl apply -f resources/kind_ingress_deployment_a.yaml --context=$CONTEXT_A
 kubectl wait --namespace ingress-nginx --context=$CONTEXT_A \
   --for=condition=ready pod \
   --selector=app.kubernetes.io/component=controller \
@@ -174,6 +174,22 @@ Let's deploy the client into cluster A:
 
 ```
 kubectl apply -f resources/workload_client.yaml --context=$CONTEXT_A
+```
+
+## Step n+1: Cleanup
+
+Run the following:
+
+```
+kind delete cluster --name=cluster-a
+kind delete cluster --name=cluster-b
+```
+
+Then to delete podman machine:
+
+```
+podman machine stop
+y | podman machine rm
 ```
 
 ----------
