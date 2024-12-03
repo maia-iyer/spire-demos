@@ -433,7 +433,7 @@ spec:
         - --watch-ingress-without-class=true
         - --enable-metrics=false
         - --publish-status-address=localhost
-        - --default-ssl-certificate=default/wildcard-tls-secret
+        - --enable-ssl-passthrough #- --default-ssl-certificate=default/wildcard-tls-secret
         env:
         - name: POD_NAME
           valueFrom:
