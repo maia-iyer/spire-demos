@@ -177,6 +177,7 @@ Let's deploy the SPIFFE-enabled TLS server on Cluster A:
 
 ```
 envsubst < resources/workload_server.yaml | kubectl apply --context=$CONTEXT_A -f -
+kubectl wait -n demo --context=$CONTEXT_A --for=condition=ready pod --selector=app=demo-server
 ```
 
 ### Step 2b: Deploy the client in Cluster A
@@ -185,6 +186,7 @@ Let's deploy the client into cluster A:
 
 ```
 kubectl apply -f resources/workload_client.yaml --context=$CONTEXT_A
+kubectl wait -n demo --context=$CONTEXT_A --for=condition=ready pod --selector=app=client --timeout=90s
 ```
 
 Once it's running, let's exec into the pod and curl the TLS server:
@@ -201,6 +203,7 @@ Let's deploy the client into cluster A:
 
 ```
 kubectl apply -f resources/workload_client.yaml --context=$CONTEXT_B
+kubectl wait -n demo --context=$CONTEXT_B --for=condition=ready pod --selector=app=client --timeout=90s
 ```
 
 Once it's running, let's exec into the pod and curl the TLS server:
@@ -221,6 +224,12 @@ how to fix it, please visit the webpage mentioned above.
 command terminated with exit code 60
 ```
 
+### Step 2d: [Optional] ErrImagePull
+
+If you are receiving this error upon any workload deployment, it's likely due to rate limits with DockerHub. Wait a couple minutes, delete the pod that is erroring, and it should come up. 
+
+Otherwise, 
+
 ## Step 3: Federate the clusters
 
 As we saw, workloads from the same trust domain have the proper trust bundle to properly establish TLS connection with the TLS server. However, workloads from a separate trust domain do not have the proper trust bundle. We will now federate SPIRE Server B with SPIRE server a using the Tornjak API. 
@@ -232,7 +241,7 @@ We can do this with two calls: (1) obtains the trust bundle from Trust Domain A,
 The first step can be done via curl command. We will use the Tornjak API for this: 
 
 ```
-curl https://tornjak-backend.$APP_DOMAIN/api/v1/spire/bundle
+curl -k https://tornjak-backend.$APP_DOMAIN/api/v1/spire/bundle
 ```
 
 We can pass this result as an argument using jq to format the Tornjak API call to create the bundle endpoint:
@@ -240,7 +249,7 @@ We can pass this result as an argument using jq to format the Tornjak API call t
 ```
 curl --request POST \
   --data "$(
-    jq -n --argjson bundle "$(curl -s https://tornjak-backend.$APP_DOMAIN/api/v1/spire/bundle)" --arg bundle_endpoint_url https://spire-server-federation.$APP_DOMAIN --arg trust_domain $APP_DOMAIN --arg endpoint_spiffe_id spiffe://$APP_DOMAIN/spire/server '{
+    jq -n --argjson bundle "$(curl -sk https://tornjak-backend.$APP_DOMAIN/api/v1/spire/bundle)" --arg bundle_endpoint_url https://spire-server-federation.$APP_DOMAIN --arg trust_domain $APP_DOMAIN --arg endpoint_spiffe_id spiffe://$APP_DOMAIN/spire/server '{
       "federation_relationships": [
         {
           "trust_domain": $trust_domain,

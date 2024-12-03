@@ -22,12 +22,12 @@ spire-server:
       enabled: true
     enabled: true
     image:
-      tag: 71e87dc17afd66e42ab70e3004d833175d63a167
+      tag: a73d4f699f991cc3974018cb99f0f45153f1aea4
 
 tornjak-frontend:
   enabled: true
   image:
-    tag: v1.9.0
+    tag: v2.0.0
   ingress:
     enabled: true
   apiServerURL: https://localhost:10000 #https://tornjak-backend.$APP_DOMAIN
