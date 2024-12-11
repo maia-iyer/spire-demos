@@ -1,4 +1,4 @@
-# Federate the on-prem OpenShift cluster with SPIRE-enabled AWS ROSA cluster
+# Federate two SPIRE-enabled Kind clusters
 
 In this tutorial, we will be creating two kind clusters, deploying SPIRE on them, deploy simple applications, and federating the clusters through Tornjak. 
 
@@ -9,17 +9,17 @@ The following structure is the end goal:
 We will build this with the following steps:
 
 1. Setup the clusters
-   a. Create the Kind Clusters
-   b. Deploy SPIRE on both clusters
-   c. Enable the experimental feature on Tornjak
-   d. Expose the relevant endpoints
+   1. Create the Kind Clusters
+   2. Deploy SPIRE on both clusters
+   3. Enable the experimental feature on Tornjak
+   4. Expose the relevant endpoints
 2. Deploy the workloads
-   a. Deploy the server workload on Cluster A
-   b. Deploy the client workload on Cluster A
-   c. Deploy the client workload on Cluster B
+   1. Deploy the server workload on Cluster A
+   2. Deploy the client workload on Cluster A
+   3. Deploy the client workload on Cluster B
 3. Federate SPIRE Server B with SPIRE Server A
-   a. Federate using the Tornjak API
-   b. Configure workloads in Cluster B to `federateWith` Cluster A
+   1. Federate using the Tornjak API
+   2. Configure workloads in Cluster B to `federateWith` Cluster A
 4. Test workload connection
 5. Cleanup
 
@@ -44,13 +44,17 @@ Workloads obtain trust bundles through the workload API, even for foreign trust 
 
 ## Step 0: Requirements
 
-This tutorial uses Kind on rootless Podman. We will be creating two Kind clusters and deploying on Helm:
+This tutorial has been tested on Kind with rootful Podman on OSX. Any container runtime that Kind supports should work as well. 
+
+The following tools are required for the commands we use: 
 
 - kubectl 
 - Helm
 - kind
 - podman
 - git
+- envsubst
+- jq
 
 ## Step 1: Setup the Clusters
 
@@ -59,23 +63,28 @@ We will create the clusters and deploy SPIRE on both. Cluster A will use a nips 
 Let's obtain the necessary deployment files for this tutorial:
 
 ```
-git clone git@github.com:maia-iyer/spire-demos.git -b tornjak_crd_federation
-cd tornjak_crd_federation
+git clone https://github.com/maia-iyer/spire-demos.git
+cd spire-demos/tornjak_crd_federation
 ```
 
 ### Step 1a: Create the Kind Clusters
 
-If a Podman machine is up and running skip the following step. Else run this command to start the podman machine:
+If a Podman machine is up and running skip the following step. Else on OSX or Windows, run this command to start the podman machine:
 
 ```
 podman machine init -m 4096 --rootful=true
 podman machine start
 ```
 
-Now we can create the Kind clusters. We will add extra port mappings to cluster A because we will set up ingress on that cluster. 
+If you have multiple container runtimes, specify the proper runtime:
 
 ```
 export KIND_EXPERIMENTAL_PROVIDER=podman
+```
+
+Now we can create the Kind clusters. We will add extra port mappings to cluster A because we will set up ingress on that cluster. 
+
+```
 kind create cluster --name=cluster-a --config=resources/kind_cluster_a_config.yaml
 export CONTEXT_A=$(kubectl config current-context)
 kind create cluster --name=cluster-b
