@@ -67,7 +67,7 @@ git clone https://github.com/maia-iyer/spire-demos.git
 cd spire-demos/tornjak_crd_federation
 ```
 
-### Step 1a: Create the Kind Clusters
+### Step 1.1: Create the Kind Clusters
 
 If a Podman machine is up and running skip the following step. Else on OSX or Windows, run this command to start the podman machine:
 
@@ -91,7 +91,7 @@ kind create cluster --name=cluster-b
 export CONTEXT_B=$(kubectl config current-context)
 ```
 
-### Step 1b: Set up Ingress on Cluster A
+### Step 1.2: Set up Ingress on Cluster A
 
 On Kind we can deploy an Nginx Ingress controller to access application services running within the environment.
 
@@ -119,7 +119,7 @@ kubectl wait --namespace ingress-nginx --context=$CONTEXT_A \
   --timeout=90s
 ```
 
-### Step 1c: Deploy SPIRE on each Kind cluster
+### Step 1.3: Deploy SPIRE on each Kind cluster
 
 Now we can deploy SPIRE on each Kind cluster. The following deploys on Cluster A
 
@@ -142,7 +142,7 @@ Notably, the helm installs are nearly identical, except for two things:
 1. They have different trust domain names. It is not possible to federated two SPIRE servers with the same trust domain names. 
 2. Only Cluster A has federation enabled. This is because in this demo we only need to federate in one direction.
 
-### Step 1d: Configure Tornjak
+### Step 1.4: Configure Tornjak
 
 Run the following to configure Tornjak to enable CRD management:
 
@@ -153,7 +153,7 @@ kubectl apply -f resources/tornjak_cm.yaml --context=$CONTEXT_B
 kubectl delete po -n spire-server spire-server-0 --context=$CONTEXT_B
 ```
 
-### Step 1e: Port-forward from Cluster B
+### Step 1.5: Port-forward from Cluster B
 
 We need to expose the Tornjak backend endpoint from Cluster B. In your current terminal, run:
 
@@ -180,7 +180,7 @@ The TLS client is an Alpine image that uses the SPIFFE Helper to locally populat
 
 We are using one-direction TLS connection where clients verify the authenticity of the server. Therefore, proper communication requires the server presents a certificate that matches clients' trust bundles. Therefore, for this tutorial, we only need allow the trust bundle from Cluster A to be given to the workload in Cluster B, and no trust bundle from Cluster B need be given to workloads in Cluster A in this simple setup. 
 
-### Step 2a: Deploy the server
+### Step 2.1: Deploy the server
 
 Let's deploy the SPIFFE-enabled TLS server on Cluster A:
 
@@ -189,7 +189,7 @@ envsubst < resources/workload_server.yaml | kubectl apply --context=$CONTEXT_A -
 kubectl wait -n demo --context=$CONTEXT_A --for=condition=ready pod --selector=app=demo-server
 ```
 
-### Step 2b: Deploy the client in Cluster A
+### Step 2.2: Deploy the client in Cluster A
 
 Let's deploy the client into cluster A:
 
@@ -206,9 +206,9 @@ kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --contex
 
 You should get a `Success!!!` message in response
 
-### Step 2c: Deploy the client into Cluster B
+### Step 2.3: Deploy the client into Cluster B
 
-Let's deploy the client into cluster A:
+Let's deploy the client into cluster B:
 
 ```
 kubectl apply -f resources/workload_client.yaml --context=$CONTEXT_B
@@ -233,16 +233,16 @@ how to fix it, please visit the webpage mentioned above.
 command terminated with exit code 60
 ```
 
-### Step 2d: [OPTIONAL] ErrImagePull
+### Step 2.4: [OPTIONAL] ErrImagePull
 
 If you are receiving this error upon any workload deployment, it's likely due to rate limits with DockerHub. Wait a couple minutes, delete the pod that is erroring, and it should come up. 
 
 Otherwise, you may build and load the images yourself: 
 
 ```
-docker buildx build -t docker.io/maiariyer/tls-server:v1 server --load
+podman build -t docker.io/maiariyer/tls-server:v1 server --load
 kind load docker-image docker.io/maiariyer/tls-server:v1
-docker buildx build -t docker.io/maiariyer/tls-client:v1 client --load
+podman buildx build -t docker.io/maiariyer/tls-client:v1 client --load
 kind load docker-image docker.io/maiariyer/tls-client:v1
 ```
 
@@ -252,7 +252,7 @@ The source files for the TLS server and client are in the `resources/server` and
 
 As we saw, workloads from the same trust domain have the proper trust bundle to properly establish TLS connection with the TLS server. However, workloads from a separate trust domain do not have the proper trust bundle. We will now federate SPIRE Server B with SPIRE server a using the Tornjak API. 
 
-### Step 3a: Federate the SPIRE Servers
+### Step 3.1: Federate the SPIRE Servers
 
 We can do this with two calls: (1) obtains the trust bundle from Trust Domain A, and (2) creates a federation relationship using that bundle on SPIRE Server B. 
 
@@ -283,7 +283,7 @@ curl --request POST \
   http://localhost:10000/api/v1/spire-controller-manager/clusterfederatedtrustdomains
 ```
 
-### Step 3b: Verify Federation Establishment
+### Step 3.2: Verify Federation Establishment
 
 We can verify that the federation relationship is configured by making the following API call:
 
@@ -299,21 +299,21 @@ We can also check the SPIRE server logs to ensure the connection with the foreig
 kubectl logs -n spire-server spire-server-0 --context=$CONTEXT_B | grep "Bundle refreshed"
 ```
 
-If this result comes back non-empty the SPIRE server has been federated!`
+If this result comes back non-empty the SPIRE server has been federated!
 
-### Step 3c: Configure workloads to `federateWith` the foreign trust domain
+### Step 3.3: Configure workloads to `federateWith` the foreign trust domain
 
 In order for the workload to finally obtain the foreign trust bundle, we need to configure the workload entries. We can make the following call:
 
 ```
-envsubst < resources/clusterspiffeid_b.yaml | kubectl apply -f - 
+envsubst < resources/clusterspiffeid_b.yaml | kubectl apply --context=$CONTEXT_B -f - 
 ```
 
 #### Note on configuring workload entries
 
 We are using the SPIRE controller manager in this demo to automatically register workloads. Above we are adjusting the default template for entries that workloads receive. 
 
-Importantly this example allows all workload entries to receive the foreign trust domain bundle, but in practice we should be more restrictive about which workloads obtain the foreign trust bundle. 
+It is important to note that this example allows all workload entries to receive the foreign trust domain bundle, but in practice we should be more restrictive about which workloads obtain the foreign trust bundle. 
 
 ## Step 4: Verify successful TLS connection from Cluster B
 
@@ -325,7 +325,7 @@ kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --contex
 
 We see success!
 
-## Step n+1: Cleanup
+## Step 5: Cleanup
 
 Run the following:
 
@@ -334,7 +334,7 @@ kind delete cluster --name=cluster-a
 kind delete cluster --name=cluster-b
 ```
 
-Then to delete podman machine:
+Then to delete podman machine if you are running on Windows or OSX:
 
 ```
 podman machine stop
