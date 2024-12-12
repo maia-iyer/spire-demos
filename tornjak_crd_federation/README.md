@@ -270,7 +270,7 @@ The response should look something like this:
 
 ```
 {
-  "trust_domain": "9.31.101.125.nip.io",
+  "trust_domain": "x.xx.xxx.xxx.nip.io",
   "x509_authorities": [
     {
       "asn1": "MIID+TC...J8LQ=="
@@ -291,7 +291,7 @@ The response should look something like this:
 We can pass this result as an argument using jq to format the Tornjak API call to create the bundle endpoint:
 
 ```
-curl --request POST \
+curl -s --request POST \
   --data "$(
     jq -n --argjson bundle "$(curl -sk https://tornjak-backend.$APP_DOMAIN/api/v1/spire/bundle)" --arg bundle_endpoint_url https://spire-server-federation.$APP_DOMAIN --arg trust_domain $APP_DOMAIN --arg endpoint_spiffe_id spiffe://$APP_DOMAIN/spire/server '{
       "federation_relationships": [
@@ -309,12 +309,50 @@ curl --request POST \
   http://localhost:10000/api/v1/spire-controller-manager/clusterfederatedtrustdomains | jq
 ```
 
+The response should be the information of the created federation relationship. For example: 
+
+```
+{
+  "results": [
+    {
+      "status": {
+        "message": "OK"
+      },
+      "federation_relationship": {
+        "trust_domain": "x.xx.xxx.xxx.nip.io",
+        "bundle_endpoint_url": "https://spire-server-federation.x.xx.xxx.xxx.nip.io",
+        "BundleEndpointProfile": {
+          "HttpsSpiffe": {
+            "endpoint_spiffe_id": "spiffe://x.xx.xxx.xxx.nip.io/spire/server"
+          }
+        },
+        "trust_domain_bundle": {
+          "trust_domain": "x.xx.xxx.xxx.nip.io",
+          "x509_authorities": [
+            {
+              "asn1": "MIID+...Q=="
+            }
+          ],
+          "jwt_authorities": [
+            {
+              "pubilc_key": "MIIBI...",
+              "key_id": "Wew..."
+            }
+          ],
+          "sequence_number": 1
+        }
+      }
+    }
+  ]
+}
+```
+
 ### Step 3.2: Verify Federation Establishment
 
 We can verify that the federation relationship is configured by making the following API call:
 
 ```
-curl http://localhost:10000/api/v1/spire/federations
+curl -s http://localhost:10000/api/v1/spire/federations | jq
 ```
 
 Ensure the response is non-empty.
@@ -323,6 +361,12 @@ We can also check the SPIRE server logs to ensure the connection with the foreig
 
 ```
 kubectl logs -n spire-server spire-server-0 --context=$CONTEXT_B | grep "Bundle refreshed"
+```
+
+The result should come back non-empty with at least one line formatted as follows: 
+
+```
+time="2024-12-12T21:07:12Z" level=info msg="Bundle refreshed" subsystem_name=bundle_client trust_domain=x.xx.xxx.xxx.nip.io
 ```
 
 If this result comes back non-empty the SPIRE server has been federated!
