@@ -98,7 +98,7 @@ On Kind we can deploy an Nginx Ingress controller to access application services
 Set the `APP_DOMAIN` environment variable to containe the subdomain for which all applications can be accessed:
 
 ```
-export APP_DOMAIN=$(ipconfig getifaddr en0).nip.io
+export APP_DOMAIN=$(ip -4 addr show en0 | ggrep -oP '(?<=inet\s)\d+(\.\d+){3}').nip.io
 ```
 
 Confirm the variable has been populated:
@@ -254,7 +254,10 @@ As we saw, workloads from the same trust domain have the proper trust bundle to 
 
 ### Step 3.1: Federate the SPIRE Servers
 
-We can do this with two calls: (1) obtains the trust bundle from Trust Domain A, and (2) creates a federation relationship using that bundle on SPIRE Server B. 
+We can do this with two calls: 
+
+1. Obtain the trust bundle from Trust Domain A
+2. Create a federation relationship using that bundle on SPIRE Server B. 
 
 The first step can be done via curl command. We will use the Tornjak API for this: 
 
