@@ -55,6 +55,7 @@ The following tools are required for the commands we use:
 - git
 - envsubst
 - jq
+- ip
 
 ## Step 1: Setup the Clusters
 
@@ -262,7 +263,29 @@ We can do this with two calls:
 The first step can be done via curl command. We will use the Tornjak API for this: 
 
 ```
-curl -k https://tornjak-backend.$APP_DOMAIN/api/v1/spire/bundle
+curl -sk https://tornjak-backend.$APP_DOMAIN/api/v1/spire/bundle | jq
+```
+
+The response should look something like this: 
+
+```
+{
+  "trust_domain": "9.31.101.125.nip.io",
+  "x509_authorities": [
+    {
+      "asn1": "MIID+TC...J8LQ=="
+    }
+  ],
+  "jwt_authorities": [
+    {
+      "public_key": "MIIBIjAN...",
+      "key_id": "...",
+      "expires_at": 1734123453
+    }
+  ],
+  "sequence_number": 1
+}
+
 ```
 
 We can pass this result as an argument using jq to format the Tornjak API call to create the bundle endpoint:
@@ -283,7 +306,7 @@ curl --request POST \
       ]
     }'
   )" \
-  http://localhost:10000/api/v1/spire-controller-manager/clusterfederatedtrustdomains
+  http://localhost:10000/api/v1/spire-controller-manager/clusterfederatedtrustdomains | jq
 ```
 
 ### Step 3.2: Verify Federation Establishment
