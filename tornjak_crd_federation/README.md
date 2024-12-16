@@ -87,9 +87,7 @@ Now we can create the Kind clusters. We will add extra port mappings to cluster 
 
 ```
 kind create cluster --name=cluster-a --config=resources/kind_cluster_a_config.yaml
-export CONTEXT_A=$(kubectl config current-context)
 kind create cluster --name=cluster-b
-export CONTEXT_B=$(kubectl config current-context)
 ```
 
 ### Step 1.2: Set up Ingress on Cluster A
@@ -113,8 +111,8 @@ A value similar to `x.xxx.xxx.xxx.nip.io` indicates the variable has been set pr
 We will also use a local self-signed certificate to secure the TLS connections of these applications and deploy the ingress controller:
 
 ```
-kubectl apply -f resources/kind_ingress_deployment_a.yaml --context=$CONTEXT_A
-kubectl wait --namespace ingress-nginx --context=$CONTEXT_A \
+kubectl apply -f resources/kind_ingress_deployment_a.yaml --context=kind-cluster-a
+kubectl wait --namespace ingress-nginx --context=kind-cluster-a \
   --for=condition=ready pod \
   --selector=app.kubernetes.io/component=controller \
   --timeout=90s
@@ -125,15 +123,15 @@ kubectl wait --namespace ingress-nginx --context=$CONTEXT_A \
 Now we can deploy SPIRE on each Kind cluster. The following deploys on Cluster A
 
 ```
-helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=$CONTEXT_A
-envsubst < resources/helm_values_a.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=$CONTEXT_A
+helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=kind-cluster-a
+envsubst < resources/helm_values_a.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=kind-cluster-a
 ```
 
 And the same for Cluster B
 
 ```
-helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=$CONTEXT_B
-envsubst < resources/helm_values_b.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=$CONTEXT_B
+helm upgrade --install -n spire-mgmt spire-crds spire-crds --repo https://spiffe.github.io/helm-charts-hardened/ --create-namespace --kube-context=kind-cluster-b
+envsubst < resources/helm_values_b.yaml | helm upgrade --install -n spire-mgmt spire spire --repo https://spiffe.github.io/helm-charts-hardened/ -f - --kube-context=kind-cluster-b
 ```
 
 #### Note: on the Helm installs
@@ -148,25 +146,18 @@ Notably, the helm installs are nearly identical, except for two things:
 Run the following to configure Tornjak to enable CRD management:
 
 ```
-kubectl apply -f resources/tornjak_cm.yaml --context=$CONTEXT_A
-kubectl delete po -n spire-server spire-server-0 --context=$CONTEXT_A
-kubectl apply -f resources/tornjak_cm.yaml --context=$CONTEXT_B
-kubectl delete po -n spire-server spire-server-0 --context=$CONTEXT_B
+kubectl apply -f resources/tornjak_cm.yaml --context=kind-cluster-a
+kubectl delete po -n spire-server spire-server-0 --context=kind-cluster-a
+kubectl apply -f resources/tornjak_cm.yaml --context=kind-cluster-b
+kubectl delete po -n spire-server spire-server-0 --context=kind-cluster-b
 ```
 
 ### Step 1.5: Port-forward from Cluster B
 
-We need to expose the Tornjak backend endpoint from Cluster B. In your current terminal, run:
-
-```
-echo export CONTEXT_B=$CONTEXT_B
-```
-
 Open a new terminal and run the resulting line and the port-forward: 
 
 ```
-echo export CONTEXT_B=<$CONTEXT_B value from other terminal>
-kubectl port-forward -n spire-server --context=$CONTEXT_B svc/spire-tornjak-backend 10000:10000
+kubectl port-forward -n spire-server --context=kind-cluster-b svc/spire-tornjak-backend 10000:10000
 ```
 
 ## Step 2: Deploy the workloads
@@ -186,8 +177,8 @@ We are using one-direction TLS connection where clients verify the authenticity 
 Let's deploy the SPIFFE-enabled TLS server on Cluster A:
 
 ```
-envsubst < resources/workload_server.yaml | kubectl apply --context=$CONTEXT_A -f -
-kubectl wait -n demo --context=$CONTEXT_A --for=condition=ready pod --selector=app=demo-server
+envsubst < resources/workload_server.yaml | kubectl apply --context=kind-cluster-a -f -
+kubectl wait -n demo --context=kind-cluster-a --for=condition=ready pod --selector=app=demo-server
 ```
 
 ### Step 2.2: Deploy the client in Cluster A
@@ -195,14 +186,14 @@ kubectl wait -n demo --context=$CONTEXT_A --for=condition=ready pod --selector=a
 Let's deploy the client into cluster A:
 
 ```
-kubectl apply -f resources/workload_client.yaml --context=$CONTEXT_A
-kubectl wait -n demo --context=$CONTEXT_A --for=condition=ready pod --selector=app=client --timeout=90s
+kubectl apply -f resources/workload_client.yaml --context=kind-cluster-a
+kubectl wait -n demo --context=kind-cluster-a --for=condition=ready pod --selector=app=client --timeout=90s
 ```
 
 Once it's running, let's exec into the pod and curl the TLS server:
 
 ```
-kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=$CONTEXT_A) --context=$CONTEXT_A -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-a) --context=kind-cluster-a -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
 ```
 
 You should get a `Success!!!` message in response
@@ -212,14 +203,14 @@ You should get a `Success!!!` message in response
 Let's deploy the client into cluster B:
 
 ```
-kubectl apply -f resources/workload_client.yaml --context=$CONTEXT_B
-kubectl wait -n demo --context=$CONTEXT_B --for=condition=ready pod --selector=app=client --timeout=90s
+kubectl apply -f resources/workload_client.yaml --context=kind-cluster-b
+kubectl wait -n demo --context=kind-cluster-b --for=condition=ready pod --selector=app=client --timeout=90s
 ```
 
 Once it's running, let's exec into the pod and curl the TLS server:
 
 ```
-kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=$CONTEXT_B) --context=$CONTEXT_B -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
 ```
 
 You should get an error message in response:
@@ -360,7 +351,7 @@ Ensure the response is non-empty.
 We can also check the SPIRE server logs to ensure the connection with the foreign bundle endpoint is successfully established:
 
 ```
-kubectl logs -n spire-server spire-server-0 --context=$CONTEXT_B | grep "Bundle refreshed"
+kubectl logs -n spire-server spire-server-0 --context=kind-cluster-b | grep "Bundle refreshed"
 ```
 
 The result should come back non-empty with at least one line formatted as follows: 
@@ -376,7 +367,7 @@ If this result comes back non-empty the SPIRE server has been federated!
 In order for the workload to finally obtain the foreign trust bundle, we need to configure the workload entries. We can make the following call:
 
 ```
-envsubst < resources/clusterspiffeid_b.yaml | kubectl apply --context=$CONTEXT_B -f - 
+envsubst < resources/clusterspiffeid_b.yaml | kubectl apply --context=kind-cluster-b -f - 
 ```
 
 #### Note on configuring workload entries
@@ -390,7 +381,7 @@ It is important to note that this example allows all workload entries to receive
 Finally, let's perform the CURL again: 
 
 ```
-kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=$CONTEXT_B) --context=$CONTEXT_B -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
 ```
 
 We see success!
