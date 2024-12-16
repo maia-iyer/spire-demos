@@ -390,7 +390,7 @@ Finally, let's perform the CURL again:
 kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
 ```
 
-We see success!
+We see success! This means that the client on Cluster B can now recognize identities of cluster A's trust domain because federation has been established. 
 
 ## Step 5: Cleanup
 
