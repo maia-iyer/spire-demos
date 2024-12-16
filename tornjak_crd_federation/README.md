@@ -94,10 +94,16 @@ kind create cluster --name=cluster-b
 
 On Kind we can deploy an Nginx Ingress controller to access application services running within the environment.
 
-Set the `APP_DOMAIN` environment variable to containe the subdomain for which all applications can be accessed:
+Set the `APP_DOMAIN` environment variable to containe the subdomain for which all applications can be accessed. On RHEL: 
 
 ```
-export APP_DOMAIN=$(ip -4 addr show en0 | ggrep -oP '(?<=inet\s)\d+(\.\d+){3}').nip.io
+export APP_DOMAIN=$(ip -4 addr show ens192 | ggrep -oP '(?<=inet\s)\d+(\.\d+){3}').nip.io
+```
+
+On MacOS/Windows:
+
+```
+export APP_DOMAIN=$(ipconfig getifaddr en0).nip.io
 ```
 
 Confirm the variable has been populated:
@@ -178,7 +184,7 @@ Let's deploy the SPIFFE-enabled TLS server on Cluster A:
 
 ```
 envsubst < resources/workload_server.yaml | kubectl apply --context=kind-cluster-a -f -
-kubectl wait -n demo --context=kind-cluster-a --for=condition=ready pod --selector=app=demo-server
+kubectl wait -n demo --context=kind-cluster-a --for=condition=ready pod --selector=app=demo-server --timeout=180s
 ```
 
 ### Step 2.2: Deploy the client in Cluster A
@@ -187,7 +193,7 @@ Let's deploy the client into cluster A:
 
 ```
 kubectl apply -f resources/workload_client.yaml --context=kind-cluster-a
-kubectl wait -n demo --context=kind-cluster-a --for=condition=ready pod --selector=app=client --timeout=90s
+kubectl wait -n demo --context=kind-cluster-a --for=condition=ready pod --selector=app=client --timeout=180s
 ```
 
 Once it's running, let's exec into the pod and curl the TLS server:
@@ -204,7 +210,7 @@ Let's deploy the client into cluster B:
 
 ```
 kubectl apply -f resources/workload_client.yaml --context=kind-cluster-b
-kubectl wait -n demo --context=kind-cluster-b --for=condition=ready pod --selector=app=client --timeout=90s
+kubectl wait -n demo --context=kind-cluster-b --for=condition=ready pod --selector=app=client --timeout=180s
 ```
 
 Once it's running, let's exec into the pod and curl the TLS server:
