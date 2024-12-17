@@ -178,6 +178,19 @@ The TLS client is an Alpine image that uses the SPIFFE Helper to locally populat
 
 We are using one-direction TLS connection where clients verify the authenticity of the server. Therefore, proper communication requires the server presents a certificate that matches clients' trust bundles. Therefore, for this tutorial, we only need allow the trust bundle from Cluster A to be given to the workload in Cluster B, and no trust bundle from Cluster B need be given to workloads in Cluster A in this simple setup. 
 
+### Step 2.0: [OPTIONAL] Build your own images
+
+Images for the server and clident are publicly available at `docker.io/maiariyer/tls-server:v1` and `docker.io/maiariyer/tls-client:v1` respectively. This tutorial will use these public images. 
+
+If you would like to modify the applications and build the images yourself, or if you come across image pulling errors with DockerHub, the source files for the TLS server and client are in the `resources/server` and `resources/client` directories respectively. You can optionally build and load the images into kind using the following: 
+
+```
+podman build -t docker.io/maiariyer/tls-server:v1 server --load
+kind load docker-image docker.io/maiariyer/tls-server:v1
+podman build -t docker.io/maiariyer/tls-client:v1 client --load
+kind load docker-image docker.io/maiariyer/tls-client:v1
+```
+
 ### Step 2.1: Deploy the server
 
 Let's deploy the SPIFFE-enabled TLS server on Cluster A:
@@ -202,7 +215,7 @@ Once it's running, let's exec into the pod and curl the TLS server:
 kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-a) --context=kind-cluster-a -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
 ```
 
-You should get a `Success!!!` message in response
+You should get a `Success!!!` message in response. 
 
 ### Step 2.3: Deploy the client into Cluster B
 
@@ -231,20 +244,31 @@ how to fix it, please visit the webpage mentioned above.
 command terminated with exit code 60
 ```
 
-### Step 2.4: [OPTIONAL] ErrImagePull
+### Step 2.4: Inspect the trust bundles
 
-If you are receiving this error upon any workload deployment, it's likely due to rate limits with DockerHub. Wait a couple minutes, delete the pod that is erroring, and it should come up. 
-
-Otherwise, you may build and load the images yourself: 
+We are deploying identical clients which use the spiffe-helper to populate the local file `/opt/svid_bundle.pem` with the trust bundles provided via the SPIFFE workload API. We can exec into each container to view the certificates:
 
 ```
-podman build -t docker.io/maiariyer/tls-server:v1 server --load
-kind load docker-image docker.io/maiariyer/tls-server:v1
-podman buildx build -t docker.io/maiariyer/tls-client:v1 client --load
-kind load docker-image docker.io/maiariyer/tls-client:v1
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-a) --context=kind-cluster-a -- cat /opt/svid_bundle.pem | head -n 24 | openssl x509 -noout -subject
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- cat /opt/svid_bundle.pem | tail -n 24 | openssl x509 -noout -subject
 ```
 
-The source files for the TLS server and client are in the `resources/server` and `resources/client` directories respectively. 
+Depending on how long the clusters are running for and the time interval used for rotation, `/opt/svid_bundle.pem` may have more than one certificate at this point. Use the following to store the chain of trusted certificates in a temporary local file and view the contents for the client in trust domain A:
+
+```
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-a) --context=kind-cluster-a -- cat /opt/svid_bundle.pem > bundle_a.pem
+openssl crl2pkcs7 -nocrl -certfile bundle_a.pem | openssl pkcs7 -print_certs -noout | grep "subject="
+```
+
+And the client in trust domain B: 
+
+```
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- cat /opt/svid_bundle.pem > bundle_b.pem
+openssl crl2pkcs7 -nocrl -certfile bundle_b.pem | openssl pkcs7 -print_certs -noout | grep "subject="
+```
+
+You should see that every line for the trust bundle in the client in cluster A should have Common Name `xxx.xxx.x.xx.nip.io` and that every line for the client in cluster B should have Common Name `client.example`
+
 
 ## Step 3: Federate the clusters
 
@@ -384,13 +408,20 @@ It is important to note that this example allows all workload entries to receive
 
 ## Step 4: Verify successful TLS connection from Cluster B
 
-Finally, let's perform the CURL again: 
+With these steps complete, let's inspect the trust bundle of the client in Cluster B again: 
+
+```
+kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- cat /opt/svid_bundle.pem > bundle_b.pem
+openssl crl2pkcs7 -nocrl -certfile bundle_b.pem | openssl pkcs7 -print_certs -noout | grep "subject="
+```
+
+You should now see that this workload now has certificates with both Common Name `client.example` and `xxx.xxx.x.xx.nip.io`. This means this workload muw now trust cerificates given by the SPIRE server in Cluster A. Finally, let's perform the CURL again: 
 
 ```
 kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
 ```
 
-We see success! This means that the client on Cluster B can now recognize identities of cluster A's trust domain because federation has been established. 
+We see success! This means that the client on Cluster B can now recognize identities of cluster A's trust domain because the federation relationship has been established. 
 
 ## Step 5: Cleanup
 
