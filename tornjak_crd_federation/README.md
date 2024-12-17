@@ -246,14 +246,7 @@ command terminated with exit code 60
 
 ### Step 2.4: Inspect the trust bundles
 
-We are deploying identical clients which use the spiffe-helper to populate the local file `/opt/svid_bundle.pem` with the trust bundles provided via the SPIFFE workload API. We can exec into each container to view the certificates:
-
-```
-kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-a) --context=kind-cluster-a -- cat /opt/svid_bundle.pem | head -n 24 | openssl x509 -noout -subject
-kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- cat /opt/svid_bundle.pem | tail -n 24 | openssl x509 -noout -subject
-```
-
-Depending on how long the clusters are running for and the time interval used for rotation, `/opt/svid_bundle.pem` may have more than one certificate at this point. Use the following to store the chain of trusted certificates in a temporary local file and view the contents for the client in trust domain A:
+We are deploying identical clients which use the spiffe-helper to populate the local file `/opt/svid_bundle.pem` with the trust bundles provided via the SPIFFE workload API. We can exec into each container to view the certificates. Depending on how long the clusters are running for and the time interval used for rotation, `/opt/svid_bundle.pem` may have more than one certificate at this point. Use the following to store the chain of trusted certificates in a temporary local file and view the subject information for the client in trust domain A:
 
 ```
 kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-a) --context=kind-cluster-a -- cat /opt/svid_bundle.pem > bundle_a.pem
