@@ -401,14 +401,16 @@ It is important to note that this example allows all workload entries to receive
 
 ## Step 4: Verify successful TLS connection from Cluster B
 
-With these steps complete, let's inspect the trust bundle of the client in Cluster B again: 
+With these steps complete, let's inspect the trust bundle of the client in Cluster B again:  
 
 ```
 kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- cat /opt/svid_bundle.pem > bundle_b.pem
 openssl crl2pkcs7 -nocrl -certfile bundle_b.pem | openssl pkcs7 -print_certs -noout | grep "subject="
 ```
 
-You should now see that this workload now has certificates with both Common Name `client.example` and `xxx.xxx.x.xx.nip.io`. This means this workload muw now trust cerificates given by the SPIRE server in Cluster A. Finally, let's perform the CURL again: 
+You should now see that this workload now has certificates with both Common Name `client.example` and `xxx.xxx.x.xx.nip.io`. If this is not the case, you may need to wait a couple seconds for the refresh of trust bundle to propagate to the workload. 
+
+This means this workload now trusts cerificates given by the SPIRE server in Cluster A. Finally, let's perform the CURL again: 
 
 ```
 kubectl exec -n demo -it $(kubectl get po -n demo -o name -l app=client --context=kind-cluster-b) --context=kind-cluster-b -- curl --cacert /opt/svid_bundle.pem https://demo-server.$APP_DOMAIN
