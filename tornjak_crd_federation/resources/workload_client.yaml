@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  creationTimestamp: null
+  name: demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: client
+  name: client
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: client
+    spec:
+      containers:
+      - image: docker.io/maiariyer/tls-client:v1
+        name: tls-client
+        args:
+        - -config
+        - ./helper.conf
+        resources: {}
+        volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /spiffe-workload-api
+          readOnly: true
+        - name: cert-volume
+          mountPath: /opt
+      volumes:
+      - name: spiffe-workload-api
+        csi:
+          driver: "csi.spiffe.io"
+          readOnly: true
+      - name: cert-volume
+        emptyDir: {}
+
+
