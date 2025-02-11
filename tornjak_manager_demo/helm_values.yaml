@@ -1,0 +1,44 @@
+global:
+  openshift: false # If running on openshift, set to true
+  spire:
+    recommendations:
+      enabled: true
+    namespaces:
+      create: true
+    ingressControllerType: "" # If not openshift, and want to expose services, set to a supported option [ingress-nginx]
+    # Update these
+    clusterName: server-cluster
+    trustDomain: server.org
+    caSubject:
+      country: SPIFFE
+      organization: TornjakFederationDemo
+      commonName: server.org
+
+spire-server:
+  federation:
+    enabled: true
+  controllerManager: 
+    enabled: true
+  tornjak:
+    enabled: true
+    image:
+      tag: a73d4f699f991cc3974018cb99f0f45153f1aea4
+
+spiffe-oidc-discovery-provider:
+  enabled: false
+
+tornjak-frontend:
+  enabled: true
+  apiServerURL: http://localhost:10000
+  image:
+    tag: a73d4f699f991cc3974018cb99f0f45153f1aea4
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 512Mi
