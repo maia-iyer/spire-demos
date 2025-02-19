@@ -6,3 +6,4 @@ Compiled list of demos/tutorials for SPIRE
 - `spire_clusterlink_sidecar` shows an example of how the SPIFFE Helper can be used in a sidecar to create secrets containing SPIRE-issued certs/keys
 - `tornjak_api_federation` is a bare bones example of how to federate two SPIRE servers with the Tornjak API
 - `tornjak_crd_federation` is a longer tutorial of federating two clusters and enabling TLS communication
+- `keycloak_token_exchange` is a tutorial for installing SPIRE and Keycloak and demonstrating login and token exchange using SPIRE authentication to Keycloak
