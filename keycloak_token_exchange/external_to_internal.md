@@ -166,7 +166,7 @@ curl -sX POST -H "Content-Type: application/x-www-form-urlencoded" \
         "http://localhost:8080/realms/RealmA/protocol/openid-connect/token" | jq -r
 ```
 
-If the application wants an access token for a different audience, it must be configured to do so, and must specify using `-d "audience=<desired client id>" argument. 
+If the application wants an access token for a different audience, it must be configured to do so, and must specify using `-d "audience=<desired client id>"` argument. 
 
 
 ## TODOs:
